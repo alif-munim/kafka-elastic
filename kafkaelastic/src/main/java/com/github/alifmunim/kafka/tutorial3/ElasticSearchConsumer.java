@@ -18,6 +18,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,15 +75,121 @@ public class ElasticSearchConsumer {
 
     public static String extractJsonInfo(String jsonString) {
         JSONObject obj = new JSONObject(jsonString);
+
         String text = obj.getString("text");
         String user = obj.getJSONObject("user").getString("screen_name");
         String date = obj.getString("created_at");
 
-        String newJsonString = new JSONObject()
+        JSONArray hashtags = obj.getJSONObject("entities").getJSONArray("hashtags");
+        JSONArray user_mentions = obj.getJSONObject("entities").getJSONArray("user_mentions");
+        JSONArray urls = obj.getJSONObject("entities").getJSONArray("urls");
+
+        int quote_count = obj.getInt("quote_count");
+        int reply_count = obj.getInt("reply_count");
+        int retweet_count = obj.getInt("retweet_count");
+        int favorite_count = obj.getInt("favorite_count");
+
+        boolean is_quote_status = obj.getBoolean("is_quote_status");
+        boolean favorited = obj.getBoolean("favorited");
+        boolean retweeted = obj.getBoolean("retweeted");
+
+        JSONObject objRetweetNew = new JSONObject();
+        JSONObject objRetweetQuotedNew = new JSONObject();
+
+        if (obj.getJSONObject("retweeted_status") != null) {
+            JSONObject objRetweet = obj.getJSONObject("retweeted_status");
+
+            String retweeted_text = objRetweet.getString("text");
+            String retweeted_user = objRetweet.getJSONObject("user").getString("screen_name");
+            String retweeted_date = objRetweet.getString("created_at");
+
+            JSONArray retweeted_hashtags = objRetweet.getJSONObject("entities").getJSONArray("hashtags");
+            JSONArray retweeted_user_mentions = objRetweet.getJSONObject("entities").getJSONArray("user_mentions");
+            JSONArray retweeted_urls = objRetweet.getJSONObject("entities").getJSONArray("urls");
+
+            int retweeted_quote_count = objRetweet.getInt("quote_count");
+            int retweeted_reply_count = objRetweet.getInt("reply_count");
+            int retweeted_retweet_count = objRetweet.getInt("retweet_count");
+            int retweeted_favorite_count = objRetweet.getInt("favorite_count");
+
+            boolean retweeted_is_quote_status = objRetweet.getBoolean("is_quote_status");
+            boolean retweeted_favorited = objRetweet.getBoolean("favorited");
+            boolean retweeted_retweeted = objRetweet.getBoolean("retweeted");
+
+            objRetweetNew.put("text", retweeted_text)
+                    .put("user", retweeted_user)
+                    .put("date", retweeted_date)
+                    .put("hashtags", retweeted_hashtags)
+                    .put("user_mentions", retweeted_user_mentions)
+                    .put("urls", retweeted_urls)
+                    .put("quote_count", retweeted_quote_count)
+                    .put("reply_count", retweeted_reply_count)
+                    .put("retweet_count", retweeted_retweet_count)
+                    .put("favorite_count", retweeted_favorite_count)
+                    .put("is_quote_status", retweeted_is_quote_status)
+                    .put("favorited", retweeted_favorited)
+                    .put("retweeted", retweeted_retweeted);
+
+            if (obj.getBoolean("is_quote_status")) {
+                JSONObject objQuoted = objRetweet.getJSONObject("quoted_status");
+
+                String quoted_text = objQuoted.getString("text");
+                String quoted_user = objQuoted.getJSONObject("user").getString("screen_name");
+                String quoted_date = objQuoted.getString("created_at");
+
+                JSONArray quoted_hashtags = objQuoted.getJSONObject("entities").getJSONArray("hashtags");
+                JSONArray quoted_user_mentions = objQuoted.getJSONObject("entities").getJSONArray("user_mentions");
+                JSONArray quoted_urls = objQuoted.getJSONObject("entities").getJSONArray("urls");
+
+                int quoted_quote_count = objQuoted.getInt("quote_count");
+                int quoted_reply_count = objQuoted.getInt("reply_count");
+                int quoted_retweet_count = objQuoted.getInt("retweet_count");
+                int quoted_favorite_count = objQuoted.getInt("favorite_count");
+
+                boolean quoted_is_quote_status = objQuoted.getBoolean("is_quote_status");
+                boolean quoted_favorited = objQuoted.getBoolean("favorited");
+                boolean quoted_retweeted = objQuoted.getBoolean("retweeted");
+
+                objRetweetQuotedNew.put("text", quoted_text)
+                        .put("user", quoted_user)
+                        .put("date", quoted_date)
+                        .put("hashtags", quoted_hashtags)
+                        .put("user_mentions", quoted_user_mentions)
+                        .put("urls", quoted_urls)
+                        .put("quote_count", quoted_quote_count)
+                        .put("reply_count", quoted_reply_count)
+                        .put("retweet_count", quoted_retweet_count)
+                        .put("favorite_count", quoted_favorite_count)
+                        .put("is_quote_status", quoted_is_quote_status)
+                        .put("favorited", quoted_favorited)
+                        .put("retweeted", quoted_retweeted);
+            }
+        }
+
+        JSONObject objNew = new JSONObject()
                 .put("text", text)
                 .put("user", user)
                 .put("date", date)
-                .toString();
+                .put("hashtags", hashtags)
+                .put("user_mentions", user_mentions)
+                .put("urls", urls)
+                .put("quote_count", quote_count)
+                .put("reply_count", reply_count)
+                .put("retweet_count", retweet_count)
+                .put("favorite_count", favorite_count)
+                .put("is_quote_status", is_quote_status)
+                .put("favorited", favorited)
+                .put("retweeted", retweeted);
+
+        if (obj.getJSONObject("retweeted_status") != null) {
+            objNew.put("retweeted_status", objRetweetNew);
+
+            if (obj.getBoolean("is_quote_status")) {
+                objNew.getJSONObject("retweeted_status").put("quoted_status", objRetweetQuotedNew);
+            }
+        }
+
+        String newJsonString = objNew.toString();
 
         return newJsonString;
     }
@@ -95,7 +202,7 @@ public class ElasticSearchConsumer {
         // Create consumer
         KafkaConsumer<String, String> consumer = createConsumer("twitter_tweets");
 
-        int maxTweets = 3000;
+        int maxTweets = 10;
         int numTweets = 0;
 
         boolean done = false;
@@ -111,7 +218,7 @@ public class ElasticSearchConsumer {
 
                 // Create an index request
                 IndexRequest indexRequest = new IndexRequest(
-                        "twitter27"
+                        "twitter06"
                 ).source(jsonExtract, XContentType.JSON);
 
                 // Send index request and get ID from response
