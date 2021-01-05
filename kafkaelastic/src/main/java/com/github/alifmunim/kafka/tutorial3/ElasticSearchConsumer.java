@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.UUID;
 
 public class ElasticSearchConsumer {
 
@@ -64,7 +65,7 @@ public class ElasticSearchConsumer {
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        properties.put(ConsumerConfig.GROUP_ID_CONFIG, UUID.randomUUID().toString());
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
 
         // Create consumer
@@ -96,7 +97,7 @@ public class ElasticSearchConsumer {
         JSONObject objRetweetNew = new JSONObject();
         JSONObject objRetweetQuotedNew = new JSONObject();
 
-        if (obj.getJSONObject("retweeted_status") != null) {
+        if (obj.has("retweeted_status")) {
             JSONObject objRetweet = obj.getJSONObject("retweeted_status");
 
             String retweeted_text = objRetweet.getString("text");
@@ -181,7 +182,7 @@ public class ElasticSearchConsumer {
                 .put("favorited", favorited)
                 .put("retweeted", retweeted);
 
-        if (obj.getJSONObject("retweeted_status") != null) {
+        if (obj.has("retweeted_status")) {
             objNew.put("retweeted_status", objRetweetNew);
 
             if (obj.getBoolean("is_quote_status")) {
@@ -202,7 +203,7 @@ public class ElasticSearchConsumer {
         // Create consumer
         KafkaConsumer<String, String> consumer = createConsumer("twitter_tweets");
 
-        int maxTweets = 10;
+        int maxTweets = 3000;
         int numTweets = 0;
 
         boolean done = false;
@@ -218,7 +219,7 @@ public class ElasticSearchConsumer {
 
                 // Create an index request
                 IndexRequest indexRequest = new IndexRequest(
-                        "twitter06"
+                        "twitter21"
                 ).source(jsonExtract, XContentType.JSON);
 
                 // Send index request and get ID from response
