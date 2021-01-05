@@ -64,7 +64,7 @@ public class ElasticSearchConsumer {
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
 
         // Create consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
@@ -95,10 +95,12 @@ public class ElasticSearchConsumer {
         // Create consumer
         KafkaConsumer<String, String> consumer = createConsumer("twitter_tweets");
 
+        int maxTweets = 3000;
         int numTweets = 0;
-        boolean tweetMax = false;
+
+        boolean done = false;
         // Poll for new data
-        while (!tweetMax) {
+        while (!done) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
 
             // Insert data into elasticsearch
@@ -109,7 +111,7 @@ public class ElasticSearchConsumer {
 
                 // Create an index request
                 IndexRequest indexRequest = new IndexRequest(
-                        "twitter02"
+                        "twitter27"
                 ).source(jsonExtract, XContentType.JSON);
 
                 // Send index request and get ID from response
@@ -117,21 +119,28 @@ public class ElasticSearchConsumer {
                 String id = indexResponse.getId();
                 logger.info(id);
 
-                try {
-                    Thread.sleep(1000);
-                } catch(InterruptedException e) {
-                    e.printStackTrace();
-                }
+//                try {
+//                    Thread.sleep(250);
+//                } catch(InterruptedException e) {
+//                    e.printStackTrace();
+//                }
 
                 numTweets += 1;
 
-                if (numTweets >= 100) {
-                    tweetMax = true;
+                if (numTweets >= maxTweets) {
+                    break;
                 }
             }
+
+            if (numTweets >= maxTweets) {
+                System.out.printf("Indexed %d documents\n", maxTweets);
+                done = true;
+                client.close();
+            }
+
         }
 
-//        client.close();
+//      client.close();
     }
 
 }
