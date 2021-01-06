@@ -11,6 +11,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.RequestOptions;
@@ -65,8 +67,11 @@ public class ElasticSearchConsumer {
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.put(ConsumerConfig.GROUP_ID_CONFIG, UUID.randomUUID().toString());
+//        properties.put(ConsumerConfig.GROUP_ID_CONFIG, UUID.randomUUID().toString());
+        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "20");
 
         // Create consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
@@ -185,7 +190,7 @@ public class ElasticSearchConsumer {
         if (obj.has("retweeted_status")) {
             objNew.put("retweeted_status", objRetweetNew);
 
-            if (obj.getBoolean("is_quote_status")) {
+            if (obj.has("quoted_status")) {
                 objNew.getJSONObject("retweeted_status").put("quoted_status", objRetweetQuotedNew);
             }
         }
@@ -203,13 +208,15 @@ public class ElasticSearchConsumer {
         // Create consumer
         KafkaConsumer<String, String> consumer = createConsumer("twitter_tweets");
 
-        int maxTweets = 3000;
+        int maxTweets = 500;
         int numTweets = 0;
 
         boolean done = false;
         // Poll for new data
         while (!done) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+
+            logger.info("Received " + records.count() + " records");
 
             // Insert data into elasticsearch
             for (ConsumerRecord<String, String> record : records) {
@@ -219,25 +226,32 @@ public class ElasticSearchConsumer {
 
                 // Create an index request
                 IndexRequest indexRequest = new IndexRequest(
-                        "twitter14"
+                        "twitter19"
                 ).source(jsonExtract, XContentType.JSON);
 
-                // Send index request and get ID from response
                 IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                String id = indexResponse.getId();
-                logger.info(id);
-
-//                try {
-//                    Thread.sleep(250);
-//                } catch(InterruptedException e) {
-//                    e.printStackTrace();
-//                }
+                logger.info(indexResponse.getId());
 
                 numTweets += 1;
 
                 if (numTweets >= maxTweets) {
                     break;
                 }
+
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            logger.info("Committing offsets...");
+            consumer.commitSync();
+            logger.info("Offsets have been committed");
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
 
             if (numTweets >= maxTweets) {
