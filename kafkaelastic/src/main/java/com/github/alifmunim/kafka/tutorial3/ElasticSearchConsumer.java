@@ -131,7 +131,7 @@ public class ElasticSearchConsumer {
                     .put("favorited", retweeted_favorited)
                     .put("retweeted", retweeted_retweeted);
 
-            if (obj.getBoolean("is_quote_status")) {
+            if (obj.has("quoted_status")) {
                 JSONObject objQuoted = objRetweet.getJSONObject("quoted_status");
 
                 String quoted_text = objQuoted.getString("text");
@@ -219,7 +219,7 @@ public class ElasticSearchConsumer {
 
                 // Create an index request
                 IndexRequest indexRequest = new IndexRequest(
-                        "twitter21"
+                        "twitter14"
                 ).source(jsonExtract, XContentType.JSON);
 
                 // Send index request and get ID from response
