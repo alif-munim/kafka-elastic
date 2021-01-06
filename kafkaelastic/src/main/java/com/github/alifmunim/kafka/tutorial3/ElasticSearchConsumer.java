@@ -21,6 +21,7 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,7 +72,7 @@ public class ElasticSearchConsumer {
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
         properties.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "20");
+        properties.setProperty(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "100");
 
         // Create consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(properties);
@@ -208,7 +209,7 @@ public class ElasticSearchConsumer {
         // Create consumer
         KafkaConsumer<String, String> consumer = createConsumer("twitter_tweets");
 
-        int maxTweets = 500;
+        int maxTweets = 1500;
         int numTweets = 0;
 
         boolean done = false;
@@ -216,21 +217,30 @@ public class ElasticSearchConsumer {
         while (!done) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
 
+            Integer recordCount = records.count();
             logger.info("Received " + records.count() + " records");
+
+            BulkRequest bulkRequest = new BulkRequest();
 
             // Insert data into elasticsearch
             for (ConsumerRecord<String, String> record : records) {
-                // Create a JSON string
-                String jsonString = record.value();
-                String jsonExtract = extractJsonInfo(jsonString);
 
-                // Create an index request
-                IndexRequest indexRequest = new IndexRequest(
-                        "twitter19"
-                ).source(jsonExtract, XContentType.JSON);
+                try {
+                    // Create a JSON string
+                    String jsonString = record.value();
+                    String jsonExtract = extractJsonInfo(jsonString);
 
-                IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
-                logger.info(indexResponse.getId());
+                    // Create an index request
+                    IndexRequest indexRequest = new IndexRequest(
+                            "twitter34"
+                    ).source(jsonExtract, XContentType.JSON);
+
+                    // Add to bulk request
+                    bulkRequest.add(indexRequest);
+                } catch (JSONException j) {
+                    logger.warn("Skipping bad data " + record.value());
+                }
+
 
                 numTweets += 1;
 
@@ -238,21 +248,16 @@ public class ElasticSearchConsumer {
                     break;
                 }
 
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
             }
+
+            if (recordCount > 0) {
+                BulkResponse bulkResponse = client.bulk(bulkRequest, RequestOptions.DEFAULT);
+            }
+
 
             logger.info("Committing offsets...");
             consumer.commitSync();
             logger.info("Offsets have been committed");
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
 
             if (numTweets >= maxTweets) {
                 System.out.printf("Indexed %d documents\n", maxTweets);
