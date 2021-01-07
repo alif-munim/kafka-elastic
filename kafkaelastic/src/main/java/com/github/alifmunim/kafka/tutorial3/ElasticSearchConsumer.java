@@ -209,7 +209,7 @@ public class ElasticSearchConsumer {
         // Create consumer
         KafkaConsumer<String, String> consumer = createConsumer("twitter_tweets");
 
-        int maxTweets = 1500;
+        int maxTweets = 3000;
         int numTweets = 0;
 
         boolean done = false;
@@ -232,7 +232,7 @@ public class ElasticSearchConsumer {
 
                     // Create an index request
                     IndexRequest indexRequest = new IndexRequest(
-                            "twitter34"
+                            "twitter03"
                     ).source(jsonExtract, XContentType.JSON);
 
                     // Add to bulk request
