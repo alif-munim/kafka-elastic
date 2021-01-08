@@ -232,7 +232,7 @@ public class ElasticSearchConsumer {
 
                     // Create an index request
                     IndexRequest indexRequest = new IndexRequest(
-                            "twitter03"
+                            "twitter33"
                     ).source(jsonExtract, XContentType.JSON);
 
                     // Add to bulk request
