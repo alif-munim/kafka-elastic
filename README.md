@@ -23,3 +23,12 @@ This producer is used in both the **kafkaelastic** and **esflink** pipelines.
 1. Run the `main()` method of `ElasticSearchConsumer.java`.
 1. To view your data, navigate to http://localhost:9200/[your-index]/_search?pretty=true.
 1. To view statistics about your index, navigate to http://localhost:9200/[your-index]/_stats?pretty=true.
+
+### esflink
+1. Start your local kafka.
+1. Start your local elasticsearch.
+1. Ensure **twitterproducer** has finished producing tweets to the **twitter_tweets** topic.
+1. Set the BulkProcessor settings for flink using the `.setBulkFlushMaxActions(x)` and `.setBulkFlushInterval(x)` methods on the esSinkBuilder.
+1. Run the `main()` method of `FlinkStream.java`.
+1. To view your data, navigate to http://localhost:9200/[your-index]/_search?pretty=true.
+1. To view statistics about your index, navigate to http://localhost:9200/[your-index]/_stats?pretty=true.
